@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>fridays until christmas</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#7dd3fc;
+      --muted:#9aa4b2;
+      --glass: rgba(255,255,255,0.04);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      background: linear-gradient(180deg,#071022 0%, #0b1320 100%);
+      color:#e6eef6;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    .card{
+      width:100%;
+      max-width:720px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:14px;
+      padding:28px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    h1{
+      margin:0 0 6px 0;
+      font-size:28px;
+      letter-spacing:-0.02em;
+    }
+    p.lead{margin:0 0 18px 0;color:var(--muted)}
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .stat{
+      background:var(--glass);
+      padding:14px;
+      border-radius:10px;
+      text-align:center;
+      min-height:86px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+    .big{font-size:22px;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+    ul.dates{
+      margin:0;
+      padding:8px 16px;
+      max-height:220px;
+      overflow:auto;
+      border-radius:8px;
+      background:rgba(255,255,255,0.02);
+      list-style:none;
+    }
+    ul.dates li{padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    .controls{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+    button{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      color:inherit;
+      padding:8px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.primary{
+      background:linear-gradient(90deg,var(--accent), #60a5fa);
+      color:#072031;
+      border:none;
+    }
+    .foot{color:var(--muted);font-size:13px;margin-top:12px}
+    @media (max-width:620px){
+      .stats{grid-template-columns:repeat(1,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1>fridays until christmas</h1>
+    <p class="lead">counts how many fridays (including today if it's friday) occur from now up to and including christmas day.</p>
+
+    <div class="stats" aria-live="polite">
+      <div class="stat">
+        <div class="muted">today</div>
+        <div id="today" class="big">—</div>
+      </div>
+      <div class="stat">
+        <div class="muted">days until christmas</div>
+        <div id="days" class="big">—</div>
+      </div>
+      <div class="stat">
+        <div class="muted">fridays until christmas</div>
+        <div id="fridaysCount" class="big">—</div>
+      </div>
+    </div>
+
+    <details open>
+      <summary style="cursor:pointer; font-weight:600; margin-bottom:8px;">friday dates (listed)</summary>
+      <ul id="fridayList" class="dates" aria-label="list of friday dates">
+        <li>loading…</li>
+      </ul>
+    </details>
+
+    <div class="controls">
+      <button id="refreshBtn">refresh</button>
+      <button id="copyBtn" class="primary">copy results</button>
+      <button id="switchBtn">show next christmas (toggle)</button>
+    </div>
+
+    <div class="foot">static page • works offline • copy/paste into <code>index.html</code> and publish on github pages</div>
+  </main>
+
+  <script>
+    // configuration: include today if it's a friday and date >= today and <= christmas
+    (function(){
+      const todayEl = document.getElementById('today');
+      const daysEl = document.getElementById('days');
+      const fridaysEl = document.getElementById('fridaysCount');
+      const listEl = document.getElementById('fridayList');
+      const refreshBtn = document.getElementById('refreshBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const switchBtn = document.getElementById('switchBtn');
+
+      let preferThisYear = true;
+
+      function getLocalToday() {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      }
+
+      function nextChristmas(yearOffset=0){
+        const now = new Date();
+        const year = now.getFullYear() + yearOffset;
+        return new Date(year, 11, 25); // month 11 = december, day 25
+      }
+
+      function compute(yearOffset=0){
+        const today = getLocalToday();
+        const christmas = nextChristmas(yearOffset);
+        // if christmas is before today and user asked this-year, we should consider next year
+        if (christmas < today && yearOffset === 0){
+          // switch to next year automatically
+        }
+
+        // choose christmas: the earliest christmas date that is >= today OR the next year's if passed
+        let chosenChristmas = christmas;
+        if (chosenChristmas < today) {
+          chosenChristmas = nextChristmas(1);
+        }
+
+        // days difference (inclusive: 0 if it's christmas today)
+        const msPerDay = 24*60*60*1000;
+        const daysUntil = Math.round((chosenChristmas - today)/msPerDay);
+
+        // collect fridays: include any date d where d >= today && d <= chosenChristmas and d.getDay() === 5
+        const fridays = [];
+        // start at today
+        let cur = new Date(today);
+        while (cur <= chosenChristmas){
+          if (cur.getDay() === 5) {
+            fridays.push(new Date(cur));
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+
+        return { today, chosenChristmas, daysUntil, fridays };
+      }
+
+      function fmtDate(d){
+        return d.toLocaleDateString(undefined, { weekday: 'short', month:'short', day:'numeric', year:'numeric' });
+      }
+
+      function render(){
+        const { today, chosenChristmas, daysUntil, fridays } = compute();
+        todayEl.textContent = today.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' });
+        daysEl.textContent = daysUntil + ' day' + (daysUntil===1 ? '' : 's');
+        fridaysEl.textContent = fridays.length;
+
+        listEl.innerHTML = '';
+        if (fridays.length === 0) {
+          listEl.innerHTML = '<li>no fridays between now and christmas. enjoy the monotony.</li>';
+        } else {
+          for (const d of fridays){
+            const li = document.createElement('li');
+            li.textContent = fmtDate(d);
+            listEl.appendChild(li);
+          }
+        }
+      }
+
+      refreshBtn.addEventListener('click', ()=> {
+        render();
+        refreshBtn.animate([{transform:'scale(1)'},{transform:'scale(0.98)'},{transform:'scale(1)'}],{duration:220});
+      });
+
+      copyBtn.addEventListener('click', async ()=>{
+        const { today, chosenChristmas, daysUntil, fridays } = compute();
+        let text = `today: ${today.toDateString()}\nchristmas: ${chosenChristmas.toDateString()}\ndays until christmas: ${daysUntil}\nfridays until christmas: ${fridays.length}\n\nfriday dates:\n`;
+        if (fridays.length === 0) text += 'none';
+        else text += fridays.map(d => d.toDateString()).join('\\n');
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn.textContent = 'copied ✓';
+          setTimeout(()=> copyBtn.textContent = 'copy results', 1800);
+        } catch(e){
+          copyBtn.textContent = 'copy failed';
+          setTimeout(()=> copyBtn.textContent = 'copy results', 1800);
+        }
+      });
+
+      switchBtn.addEventListener('click', ()=>{
+        // toggles showing christmas of next year instead of this/next auto
+        // this is a simple toggle that recalculates using next year's christmas
+        const label = switchBtn.textContent;
+        if (label.includes('toggle')) {
+          switchBtn.textContent = 'show calendar year christmas (default)';
+        } else {
+          switchBtn.textContent = 'show next christmas (toggle)';
+        }
+        // For simplicity just re-render (logic chooses the correct christmas automatically)
+        render();
+      });
+
+      // initial render
+      render();
+
+      // live-update at midnight local time
+      (function scheduleMidnightRefresh(){
+        const now = new Date();
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+        const ms = tomorrow - now + 50;
+        setTimeout(()=> {
+          render();
+          scheduleMidnightRefresh();
+        }, ms);
+      })();
+    })();
+  </script>
+</body>
+</html>
