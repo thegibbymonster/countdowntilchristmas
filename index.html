@@ -42,7 +42,7 @@
     p.lead{margin:0 0 18px 0;color:var(--muted)}
     .stats{
       display:grid;
-      grid-template-columns:repeat(3,1fr);
+      grid-template-columns:repeat(2,1fr);
       gap:12px;
       margin-bottom:18px;
     }
@@ -99,10 +99,7 @@
         <div class="muted">today</div>
         <div id="today" class="big">—</div>
       </div>
-      <div class="stat">
-        <div class="muted">days until christmas</div>
-        <div id="days" class="big">—</div>
-      </div>
+
       <div class="stat">
         <div class="muted">fridays until christmas</div>
         <div id="fridaysCount" class="big">—</div>
@@ -121,22 +118,16 @@
       <button id="copyBtn" class="primary">copy results</button>
       <button id="switchBtn">show next christmas (toggle)</button>
     </div>
-
-    <div class="foot">static page • works offline • copy/paste into <code>index.html</code> and publish on github pages</div>
   </main>
 
   <script>
-    // configuration: include today if it's a friday and date >= today and <= christmas
     (function(){
       const todayEl = document.getElementById('today');
-      const daysEl = document.getElementById('days');
       const fridaysEl = document.getElementById('fridaysCount');
       const listEl = document.getElementById('fridayList');
       const refreshBtn = document.getElementById('refreshBtn');
       const copyBtn = document.getElementById('copyBtn');
       const switchBtn = document.getElementById('switchBtn');
-
-      let preferThisYear = true;
 
       function getLocalToday() {
         const now = new Date();
@@ -146,35 +137,25 @@
       function nextChristmas(yearOffset=0){
         const now = new Date();
         const year = now.getFullYear() + yearOffset;
-        return new Date(year, 11, 25); // month 11 = december, day 25
+        return new Date(year, 11, 25);
       }
 
       function compute(yearOffset=0){
         const today = getLocalToday();
         const christmas = nextChristmas(yearOffset);
-        // if christmas is before today and user asked this-year, we should consider next year
-        if (christmas < today && yearOffset === 0){
-          // switch to next year automatically
-        }
 
-        // choose christmas: the earliest christmas date that is >= today OR the next year's if passed
         let chosenChristmas = christmas;
         if (chosenChristmas < today) {
           chosenChristmas = nextChristmas(1);
         }
 
-        // days difference (inclusive: 0 if it's christmas today)
         const msPerDay = 24*60*60*1000;
         const daysUntil = Math.round((chosenChristmas - today)/msPerDay);
 
-        // collect fridays: include any date d where d >= today && d <= chosenChristmas and d.getDay() === 5
         const fridays = [];
-        // start at today
         let cur = new Date(today);
         while (cur <= chosenChristmas){
-          if (cur.getDay() === 5) {
-            fridays.push(new Date(cur));
-          }
+          if (cur.getDay() === 5) fridays.push(new Date(cur));
           cur.setDate(cur.getDate() + 1);
         }
 
@@ -188,12 +169,11 @@
       function render(){
         const { today, chosenChristmas, daysUntil, fridays } = compute();
         todayEl.textContent = today.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' });
-        daysEl.textContent = daysUntil + ' day' + (daysUntil===1 ? '' : 's');
         fridaysEl.textContent = fridays.length;
 
         listEl.innerHTML = '';
         if (fridays.length === 0) {
-          listEl.innerHTML = '<li>no fridays between now and christmas. enjoy the monotony.</li>';
+          listEl.innerHTML = '<li>no fridays between now and christmas. tough luck.</li>';
         } else {
           for (const d of fridays){
             const li = document.createElement('li');
@@ -210,9 +190,9 @@
 
       copyBtn.addEventListener('click', async ()=>{
         const { today, chosenChristmas, daysUntil, fridays } = compute();
-        let text = `today: ${today.toDateString()}\nchristmas: ${chosenChristmas.toDateString()}\ndays until christmas: ${daysUntil}\nfridays until christmas: ${fridays.length}\n\nfriday dates:\n`;
+        let text = `today: ${today.toDateString()}\nchristmas: ${chosenChristmas.toDateString()}\nfridays until christmas: ${fridays.length}\n\nfriday dates:\n`;
         if (fridays.length === 0) text += 'none';
-        else text += fridays.map(d => d.toDateString()).join('\\n');
+        else text += fridays.map(d => d.toDateString()).join('\n');
         try {
           await navigator.clipboard.writeText(text);
           copyBtn.textContent = 'copied ✓';
@@ -224,22 +204,17 @@
       });
 
       switchBtn.addEventListener('click', ()=>{
-        // toggles showing christmas of next year instead of this/next auto
-        // this is a simple toggle that recalculates using next year's christmas
         const label = switchBtn.textContent;
         if (label.includes('toggle')) {
           switchBtn.textContent = 'show calendar year christmas (default)';
         } else {
           switchBtn.textContent = 'show next christmas (toggle)';
         }
-        // For simplicity just re-render (logic chooses the correct christmas automatically)
         render();
       });
 
-      // initial render
       render();
 
-      // live-update at midnight local time
       (function scheduleMidnightRefresh(){
         const now = new Date();
         const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
